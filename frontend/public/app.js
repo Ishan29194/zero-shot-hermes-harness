@@ -1,41 +1,31 @@
-// Zero-build baseline frontend. Single-origin: the page is served by the
-// backend at /app, so API calls are same-origin relative paths.
 "use strict";
-
 const $ = (id) => document.getElementById(id);
 
 async function loadHealth() {
-  const badge = $("provider-badge");
-  try {
-    const res = await fetch("/health");
-    const body = await res.json();
-    const { provider, model, key_configured: keyed } = body.data;
-    if (!keyed) {
-      badge.textContent = "no API key — set one in .env";
-      badge.classList.add("stub");
-    } else {
-      badge.textContent = `${provider} · ${model}`;
-    }
-  } catch {
-    badge.textContent = "backend unreachable";
-    badge.classList.add("stub");
+ const badge = $("provider-badge");
+ try {
+  const res = await fetch("/health");
+  const data = (await res.json()).data;
+  if (!data.key_configured) {
+   badge.textContent = "no API key";
+   badge.classList.add("stub");
+  } else {
+   badge.textContent = `${data.provider} · ${data.model}`;
   }
+ } catch {
+  badge.textContent = "backend unreachable";
+  badge.classList.add("stub");
+ }
 }
 
-async function runTransform() {
+async function runAgent() {
  const btn = $("run-btn");
  const status = $("status");
  const errBox = $("error");
  const wrap = $("result-wrap");
 
- const inputEl = $("text");
- const fileInput = $("csv");
-
- let csvBytes = null;
- if (fileInput && fileInput.files && fileInput.files[0]) {
-  csvBytes = await fileInput.files[0].arrayBuffer().then(b => new Uint8Array(b));
- }
- const question = inputEl ? inputEl.value.trim() : "";
+ const question = ($("question")?.value || "").trim();
+ const file = $("csv")?.files?.[0];
 
  errBox.hidden = true;
  wrap.hidden = true;
@@ -47,33 +37,20 @@ async function runTransform() {
  }
 
  btn.disabled = true;
- status.textContent = "Running… (one real LLM call)";
  status.hidden = false;
 
  try {
   const form = new FormData();
   form.append("question", question);
-  if (csvBytes) {
-   form.append("csv_upload", new Blob([csvBytes], { type: "text/csv" }), "upload.csv");
-  }
+  if (file) form.append("csv_upload", file, file.name);
 
-  const res = await fetch("/runs", {
-   method: "POST",
-   body: form,
-  });
-  const body = await res.json();
+  const res = await fetch("/runs", { method: "POST", body: form });
+  const payload = await res.json();
+  if (!res.ok) throw new Error(payload?.detail?.message || `HTTP ${res.status}`);
 
-  if (!res.ok) {
-   const msg = body?.detail?.message || `HTTP ${res.status}`;
-   throw new Error(msg);
-  }
-  const run = body.data;
-  if (run.status === "failed") {
-   throw new Error(run.error_message || "The agent run failed.");
-  }
+  const run = payload.data;
   $("result").textContent = run.answer_text || run.output_text || "";
-  $("result-meta").textContent =
-   `run ${run.run_id} · ${run.provider} · ${run.model}`;
+  $("result-meta").textContent = `${run.run_id} · ${run.provider} · ${run.model}`;
   wrap.hidden = false;
  } catch (err) {
   errBox.textContent = err.message;
@@ -84,5 +61,5 @@ async function runTransform() {
  }
 }
 
-$("run-btn").addEventListener("click", runTransform);
+$("run-btn").addEventListener("click", runAgent);
 loadHealth();

@@ -13,19 +13,18 @@
  <span id="provider-badge" class="badge" title="Active LLM provider">…</span>
  </header>
 
- <section class="card" id="analyst-card">
  <h2>Ask your data</h2>
- <p class="hint">Upload a CSV, enter a question, then run. Answer text appears here.</p>
+ <p>Upload a CSV and ask a question. You’ll get a clear answer and a simple audit trail.</p>
 
- <label for="csv">CSV file</label>
- <input id="csv" type="file" accept=".csv,text/csv" />
+ <label for="csv">CSV</label>
+ <input id="csv" type="file" accept="text/csv" />
 
  <label for="question">Question</label>
  <textarea id="question" rows="4" placeholder="e.g. How many incidents last month?"></textarea>
 
  <button id="run-btn">Run</button>
 
- <div id="status" class="status" hidden></div>
+ <div id="status" class="status" hidden>Running…</div>
  <div id="error" class="error" hidden></div>
 
  <div id="result-wrap" hidden>
@@ -33,10 +32,9 @@
  <pre id="result"></pre>
  <p class="meta" id="result-meta"></p>
  </div>
- </section>
 
- <footer class="foot">
- <span>API docs at <a href="/docs">/docs</a> · health at <a href="/health">/health</a></span>
+ <footer>
+  <span>API docs at <a href="/docs">/docs</a> · health at <a href="/health">/health</a></span>
  </footer>
  </main>
  <script src="app.js"></script>

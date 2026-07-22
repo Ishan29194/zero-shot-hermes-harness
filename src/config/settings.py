@@ -1,19 +1,21 @@
-"""Application settings — Pydantic BaseSettings, env prefix ``AGENT_``.
+"""Application settings — Pydantic BaseSettings, env prefix ``AGENT_``."""
 
-The provider key is loaded from ``.env`` (the single manual user step). Presence
-is checked by ``bool`` only — the value is never echoed, logged, or committed.
-"""
 from __future__ import annotations
 
-from pydantic import Field
+from pathlib import Path
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Provider defaults used when AGENT_LLM_MODEL is blank. Verify against current
-# provider docs before pinning — a 404 from the LLM API usually means a stale name.
+DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "sessions"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-6",
     "gemini": "gemini-2.5-flash",
-    "openrouter": "tencent/hy3",  # cheap default ($0.14/M in) — frontier models 402 on unfunded keys; override via AGENT_LLM_MODEL
+    "openrouter": "tencent/hy3",
+    "ollama": "llama3.1:8b-instruct-q4_0",
+    "nvidia": "meta/llama-3.3-70b-instruct",
 }
 
 
@@ -25,9 +27,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = Field(default="sqlite:///./data/app.db")
+    database_url: str = Field(default="postgresql://analyst:***@localhost:5432/up_police_analyst")
 
-    # "auto" resolves to whichever provider key is set.
     llm_provider: str = Field(default="auto")
     llm_model: str = Field(default="")
 
@@ -36,20 +37,40 @@ class Settings(BaseSettings):
     openrouter_api_key: str = Field(default="")
     openrouter_base_url: str = Field(default="https://openrouter.ai/api/v1")
 
+    ollama_base_url: str = Field(default="")
+    ollama_model: str = Field(default="llama3.1:8b-instruct-q4_0")
+
+    nvidia_api_key: str = Field(default="")
+    nvidia_base_url: str = Field(default="https://integrate.api.nvidia.com/v1")
+    nvidia_model: str = Field(default="meta/llama-3.3-70b-instruct")
+
+    token_budget: int = Field(default=8192)
+
+    mssql_connection_string: str = Field(default="")
+    mssql_ingest_enabled: bool = Field(default=False)
+
+    port: int = Field(default=8002)
     log_level: str = Field(default="INFO")
 
-    # ----- derived -----
+    @field_validator("llm_provider", "llm_model", mode="before")
+    def _strip_comments(cls, v):
+        if isinstance(v, str):
+            v = v.split("#")[0].strip()
+            return v or ""
+        return v
+
     def resolve_provider(self) -> str:
-        """The effective provider name, or ``"stub"`` when no key is present."""
-        p = (self.llm_provider or "auto").strip().lower()
-        if p != "auto":
-            return p
-        if self.anthropic_api_key:
-            return "anthropic"
-        if self.gemini_api_key:
-            return "gemini"
-        if self.openrouter_api_key:
-            return "openrouter"
+        if self.llm_provider and self.llm_provider != "auto":
+            return self.llm_provider
+        for name, key in [
+            ("anthropic", self.anthropic_api_key),
+            ("gemini", self.gemini_api_key),
+            ("openrouter", self.openrouter_api_key),
+            ("nvidia", self.nvidia_api_key),
+            ("ollama", self.ollama_base_url),
+        ]:
+            if key:
+                return name
         return "stub"
 
     def resolve_model(self) -> str:
@@ -62,6 +83,8 @@ class Settings(BaseSettings):
             "anthropic": self.anthropic_api_key,
             "gemini": self.gemini_api_key,
             "openrouter": self.openrouter_api_key,
+            "nvidia": self.nvidia_api_key,
+            "ollama": self.ollama_base_url,
         }.get(provider, "")
 
 
