@@ -1,7 +1,7 @@
 """Runs API — POST /runs executes the agent; GET /runs/{id} fetches a run."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Form, Request
 from sqlalchemy.orm import Session
 
 from src.api._common import api_error, ok
@@ -33,15 +33,26 @@ def _to_result(run: RunRow) -> RunResult:
 
 
 @router.post("/runs")
-def create_run(
+async def create_run(
+    request: Request,
     session: Session = Depends(get_session),
-    payload: dict = Body(...),
 ) -> dict:
-    question = payload.get("question")
-    if not question or not str(question).strip():
+    content_type = request.headers.get("content-type") or ""
+
+    if content_type.startswith("multipart/form-data") or content_type.startswith("application/x-www-form-urlencoded"):
+        form = await request.form()
+        question = (form.get("question") or "").strip()
+    else:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        raw = body.get("question") or body.get("text") or ""
+        question = str(raw).strip()
+    if not question:
         raise api_error("validation_error", "question is required", 422)
 
-    run_id = run_agent(str(question), None)
+    run_id = run_agent(question, None)
     run = session.get(RunRow, run_id)
     if run is None:
         raise api_error("run_not_found", f"run {run_id} vanished", 500)
