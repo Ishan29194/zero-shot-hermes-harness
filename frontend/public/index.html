@@ -13,15 +13,15 @@
  <span id="provider-badge" class="badge" title="Active LLM provider">…</span>
  </header>
 
- <section class="card" id="analyst-card">
+ <section class="card">
  <h2>Ask your data</h2>
- <p class="hint">Upload a CSV, then ask a question about it. The agent will plan, run SQL, and answer in plain text.</p>
+ <p class="hint">Upload a CSV, enter a question, then run. Answer text appears here.</p>
 
  <label for="csv">CSV file</label>
  <input id="csv" type="file" accept=".csv,text/csv" />
 
- <label for="text">Question</label>
- <textarea id="text" rows="4" placeholder="e.g. How many incidents were recorded last month?"></textarea>
+ <label for="question">Question</label>
+ <textarea id="question" rows="4" placeholder="e.g. How many incidents last month?"></textarea>
 
  <button id="run-btn">Run</button>
 
